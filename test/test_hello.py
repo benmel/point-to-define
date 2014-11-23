@@ -1,5 +1,5 @@
 import pytest
-from project.hello import *
+from point_to_define.hello import *
 
 def test():
 	h = hello()

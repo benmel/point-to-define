@@ -1,11 +1,10 @@
 #!/Users/Ben/Documents/Programming/Class/eecs332/point-to-define/venv/bin/python2.7
-
-# -*- coding: utf-8 -*-
-import re
+# EASY-INSTALL-ENTRY-SCRIPT: 'setuptools==7.0','console_scripts','easy_install'
+__requires__ = 'setuptools==7.0'
 import sys
-
-from setuptools.command.easy_install import main
+from pkg_resources import load_entry_point
 
 if __name__ == '__main__':
-    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
-    sys.exit(main())
+    sys.exit(
+        load_entry_point('setuptools==7.0', 'console_scripts', 'easy_install')()
+    )
