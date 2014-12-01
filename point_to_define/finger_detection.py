@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import copy
+import pdb
 
 class FingerDetection:
 	def __init__(self):
@@ -59,13 +60,48 @@ class FingerDetection:
 		disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11))
 		cv2.filter2D(dst,-1,disc,dst)
 			
-		ret,thresh = cv2.threshold(dst,175,255,0)
+		ret,thresh = cv2.threshold(dst,150,255,0)
 		thresh = cv2.merge((thresh,thresh,thresh))
 		
 		cv2.GaussianBlur(dst,(3,3),0,dst)
 
 		res = cv2.bitwise_and(frame,thresh)
 		return res
+
+	def find_contours(self, frame):
+		gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+		ret,thresh = cv2.threshold(gray,0,255,0)
+		contours, hierarchy = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)	
+		return contours
+
+	def get_hull(self, contours):
+		max_i = 0
+		max_area = 0
+		
+		for i in range(len(contours)):
+			cnt = contours[i]
+			area = cv2.contourArea(cnt)
+			if area > max_area:
+				max_area = area
+				max_i = i
+
+		contour = contours[max_i]
+		hull = cv2.convexHull(contour)
+		return (hull, contour)
+
+	def get_defects(self, contour):
+		hull = cv2.convexHull(contour, returnPoints = False)
+		defects = cv2.convexityDefects(contour, hull)	
+		return defects
+
+	def plot_defects(self, defects, contour, frame):
+		for i in range(defects.shape[0]):
+			s,e,f,d = defects[i,0]
+			start = tuple(contour[s][0])
+			end = tuple(contour[e][0])
+			far = tuple(contour[f][0])
+			cv2.line(frame,start,end,[0,255,0],2)                
+			cv2.circle(frame,far,5,[0,0,255],-1)	
 
 def main():
 	fd = FingerDetection()
@@ -89,7 +125,20 @@ def main():
 	
 		if fd.finished_training:
 			skin = fd.skin_hist_mask(frame)
-			cv2.imshow('image', skin)
+			contours = fd.find_contours(skin)
+			hull, contour = fd.get_hull(contours)
+			defects = fd.get_defects(contour)
+
+			contours_img = np.zeros(skin.shape,dtype=skin.dtype)
+			hull_img = np.zeros(skin.shape,dtype=skin.dtype)
+			defects_img = np.zeros(skin.shape,dtype=skin.dtype)
+
+			cv2.drawContours(contours_img,contours,-1,(0,255,0),3)
+			cv2.drawContours(hull_img,[hull],0,(0,0,255),2)
+			fd.plot_defects(defects, contour, defects_img)
+			
+			cv2.imshow('image', np.hstack([np.vstack([skin,contours_img]),
+																		 np.vstack([hull_img,defects_img])]))
 		else:
 			cv2.imshow('image', frame)
 
