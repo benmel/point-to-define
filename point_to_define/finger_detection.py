@@ -1,21 +1,36 @@
 import numpy as np
 import cv2
 import copy
+from collections import deque
+from tesserwrap import Tesseract
+from PIL import Image
+import goslate
 import pdb
 
 class FingerDetection:
 	def __init__(self):
 		self.finished_training = False
 		self.finished_paper = False
+		self.farthest_points = deque(maxlen=30)
+		self.tr = Tesseract(lang='deu')
+		self.gs = goslate.Goslate()
 
 	def resize(self, frame):
 		rows,cols,_ = frame.shape
 		ratio = float(cols)/float(rows)
 		new_rows = 400
 		new_cols = int(ratio*new_rows)
+		self.row_red = float(rows)/float(new_rows)
+		self.col_red = float(cols)/float(new_cols)
 		frame = cv2.flip(frame, 1)
 		frame = cv2.resize(frame, (new_cols, new_rows))
-		return frame	
+		return frame
+
+	def original_point(self, point):
+		x,y = point
+		xo = int(x*self.col_red)
+		yo = int(y*self.row_red)
+		return (xo,yo)
 
 	def draw_rectangle(self, frame):
 		"""draw rectangles on frame"""
@@ -120,7 +135,7 @@ class FingerDetection:
 		hull = cv2.convexHull(contour)
 		return (hull, contour)
 
-	def get_paper_only(self, contour, frame):
+	def get_paper(self, contour, frame):
 		rect = cv2.minAreaRect(contour)
 		box = cv2.cv.BoxPoints(rect)
 		box = np.int0(box)
@@ -136,8 +151,8 @@ class FingerDetection:
 		paper_mask[paper_mask > 0] = 255
 		paper_mask = np.array(paper_mask, dtype=frame.dtype)
 		paper_mask = cv2.merge((paper_mask,paper_mask,paper_mask))
-		paper_only = cv2.bitwise_and(frame,paper_mask)
-		return paper_only
+		paper = cv2.bitwise_and(frame,paper_mask)
+		return (paper, paper_mask)
 
 	def find_contours(self, frame):
 		gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
@@ -193,16 +208,41 @@ class FingerDetection:
 				start = tuple(contour[s][0])
 				end = tuple(contour[e][0])
 				far = tuple(contour[f][0])               
-				cv2.circle(frame,start,5,[0,0,255],-1)	
+				cv2.circle(frame,start,5,[0,0,255],-1)
+
+	def record_farthest_point(self, farthest_point):
+		self.farthest_points.append(farthest_point)
+
+	def test_ocr(self, paper):
+		gray = cv2.cvtColor(paper,cv2.COLOR_BGR2GRAY)
+		ret,thresh = cv2.threshold(gray,100,255,0)
+		img = Image.fromarray(thresh)
+		self.tr.set_image(img)
+
+	def get_word_at_point(self, point):
+		self.tr.get_text()
+		words = self.tr.get_words()
+		for w in words:
+			x_nw,y_nw,x_se,y_sw = w.box
+			x,y = point
+			if x > x_nw and x < x_se and y > y_nw and y < y_sw:
+				return w.value
+
+	def translate(self, word):
+		translated_word = self.gs.translate(word,'en',source_language='de')
+		return translated_word
 
 def main():
 	fd = FingerDetection()
 
 	camera = cv2.VideoCapture(1)
+	i = 0
+	text = 'Random'
 
 	while True:
 		(grabbed, frame) = camera.read()
 
+		frame_pre = copy.deepcopy(frame)
 		frame = fd.resize(frame)
 		frame_orig = copy.deepcopy(frame)
 
@@ -221,10 +261,19 @@ def main():
 			paper = fd.paper_hist_mask(frame_orig)
 			contours = fd.find_paper_contours(paper)
 			hull, contour = fd.get_paper_hull(contours)
-			fd.paper_only = fd.get_paper_only(contour,frame_orig)
+			fd.paper, fd.paper_mask = fd.get_paper(contour,frame_orig)
+
+			paper_pre = fd.paper_hist_mask(frame_pre)
+			contours_pre = fd.find_paper_contours(paper_pre)
+			hull_pre, contour_pre = fd.get_paper_hull(contours_pre)
+			paper_f, paper_mask_f = fd.get_paper(contour_pre,frame_pre)
+			
+			fd.test_ocr(paper_f)
+			
 			fd.finished_paper = True	
 
 		if cv2.waitKey(1) == ord('q'):
+			print fd.tr.get_text()
 			break
 	
 		if fd.finished_training:
@@ -235,6 +284,23 @@ def main():
 			cx, cy = fd.get_centroid(contour)
 			farthest = fd.get_farthest_point(defects, contour, cx, cy)
 
+			fd.record_farthest_point(farthest)
+
+			i = i + 1
+
+			if i > 30:
+				point = fd.original_point(farthest)
+				word = fd.get_word_at_point(point)
+				if word != None:
+					text = fd.translate(word)
+				else:
+					text = ''
+				i = 0
+
+			skin_paper = copy.deepcopy(fd.paper)
+			skin_paper = cv2.flip(skin_paper, 1)
+			cv2.circle(skin_paper,farthest,7,[0,0,255],-1)
+
 			contours_img = np.zeros(skin.shape,dtype=skin.dtype)
 			hull_img = np.zeros(skin.shape,dtype=skin.dtype)
 			defects_img = np.zeros(skin.shape,dtype=skin.dtype)
@@ -244,13 +310,16 @@ def main():
 			fd.plot_defects(defects, contour, defects_img)
 			cv2.circle(defects_img,(cx,cy),5,[255,0,0],-1)
 			cv2.circle(defects_img,farthest,5,[0,255,0],-1)
-			
+
+			rows,cols,_ = skin_paper.shape
+			cv2.putText(skin_paper, text, (rows/2-50,50), cv2.FONT_HERSHEY_PLAIN, 4, [255,255,255], 4)
+
 			cv2.imshow('image', np.hstack([np.vstack([skin,contours_img]),
-																		 np.vstack([hull_img,defects_img])]))
+																		 np.vstack([skin_paper,defects_img])]))
 		else:
 			black = np.zeros(frame.shape,dtype=frame.dtype)
 			if fd.finished_paper:
-				cv2.imshow('image', np.hstack([np.vstack([frame,fd.paper_only]),
+				cv2.imshow('image', np.hstack([np.vstack([frame,fd.paper]),
 																			 np.vstack([black,black])]))
 			else:
 				cv2.imshow('image', np.hstack([np.vstack([frame,black]),
