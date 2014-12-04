@@ -46,8 +46,12 @@ class FingerDetection:
 		self.col_ratio = float(cols)/float(new_cols)
 		
 		resized = cv2.resize(frame, (new_cols, new_rows))	
-		flipped = cv2.flip(resized, 1)
-		return flipped
+		return resized
+
+
+	def flip(self, frame):
+		flipped = cv2.flip(frame, 1)
+		return flipped	
 
 
 	def draw_paper_rect(self, frame):
@@ -95,7 +99,7 @@ class FingerDetection:
 		cx, cy = image_analysis.centroid(max_contour)
 		farthest_point = self.farthest_point(defects, max_contour, cx, cy)
 
-		paper_hand = frame.copy()
+		paper_hand = self.paper.copy()
 		self.plot_farthest_point(paper_hand, farthest_point)
 		# rows,cols,_ = paper_hand.shape
 		# cv2.putText(skin_paper, text, (rows/2-50,50), cv2.FONT_HERSHEY_PLAIN, 4, [255,255,255], 4)
@@ -104,6 +108,7 @@ class FingerDetection:
 		self.plot_centroid(frame, (cx,cy))
 		self.plot_farthest_point(frame, farthest_point)
 		self.plot_hull(frame, hull)
+		# self.plot_defects(frame, defects, max_contour)
 
 		frame_final = np.vstack([frame, paper_hand])
 		return frame_final
@@ -174,15 +179,30 @@ class FingerDetection:
 	def farthest_point(self, defects, contour, cx, cy):
 		if len(defects) > 0:
 			s = defects[:,0][:,0]
-			x = np.array(contour[s][:,0][:,0], dtype=np.float)
-			y = np.array(contour[s][:,0][:,1], dtype=np.float)
+			e = defects[:,0][:,1]
+			d = defects[:,0][:,3]
+			
+			x_s = np.array(contour[s][:,0][:,0], dtype=np.float)
+			y_s = np.array(contour[s][:,0][:,1], dtype=np.float)
 						
-			xp = cv2.pow(cv2.subtract(x, cx), 2)
-			yp = cv2.pow(cv2.subtract(y, cy), 2)
-			dist = cv2.sqrt(cv2.add(xp, yp))
+			xp_s = cv2.pow(cv2.subtract(x_s, cx), 2)
+			yp_s = cv2.pow(cv2.subtract(y_s, cy), 2)
+			dist_s = cv2.sqrt(cv2.add(xp_s, yp_s))
 
-			dist_max_i = np.argmax(dist)
-			farthest_defect = s[dist_max_i]
+			# x_e = np.array(contour[e][:,0][:,0], dtype=np.float)
+			# y_e = np.array(contour[e][:,0][:,1], dtype=np.float)
+						
+			# xp_e = cv2.pow(cv2.subtract(x_e, cx), 2)
+			# yp_e = cv2.pow(cv2.subtract(y_e, cy), 2)
+			# dist_e = cv2.sqrt(cv2.add(xp_e, yp_e))
+
+			dist_s_max_i = np.argmax(dist_s)
+			# d_max_i = np.argmax(d)
+			farthest_defect = s[dist_s_max_i]
+			# if dist_s[d_max_i] > dist_e[d_max_i]:
+			# 	farthest_defect = s[d_max_i]
+			# else:	
+			# 	farthest_defect = e[d_max_i]
 			farthest_point = tuple(contour[farthest_defect][0])
 			return farthest_point
 
@@ -193,7 +213,7 @@ class FingerDetection:
 				start = tuple(contour[s][0])
 				end = tuple(contour[e][0])
 				far = tuple(contour[f][0])               
-				cv2.circle(frame, start, 5, [0,0,255], -1)
+				cv2.circle(frame, start, 5, [255,0,255], -1)
 
 
 	def plot_farthest_point(self, frame, point):

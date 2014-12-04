@@ -19,8 +19,8 @@ def main():
 		# shrink frame
 		frame = fd.resize(frame_in)
 
-		# frame to draw on
-		frame_draw = frame.copy()
+		# flipped frame to draw on
+		frame_draw = fd.flip(frame)
 
 		# click p to train paper
 		if cv2.waitKey(1) == ord('p') & 0xFF:
