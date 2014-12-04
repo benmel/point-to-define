@@ -33,6 +33,9 @@ class FingerDetection:
 		self.paper = None
 
 		self.words = None
+		self.translations = []
+
+		self.text = ''
 
 
 	def resize(self, frame):
@@ -86,8 +89,7 @@ class FingerDetection:
 										(0,255,0),1)
 
 
-	def draw_final(self, frame):
-		"""plot centroid, farthest, hull on paper"""
+	def draw_final(self, frame, translate):
 		hand_masked = image_analysis.apply_hist_mask(frame, self.hand_hist)
 
 		contours = image_analysis.contours(hand_masked)
@@ -99,16 +101,24 @@ class FingerDetection:
 		cx, cy = image_analysis.centroid(max_contour)
 		farthest_point = self.farthest_point(defects, max_contour, cx, cy)
 
-		paper_hand = self.paper.copy()
-		self.plot_farthest_point(paper_hand, farthest_point)
-		# rows,cols,_ = paper_hand.shape
-		# cv2.putText(skin_paper, text, (rows/2-50,50), cv2.FONT_HERSHEY_PLAIN, 4, [255,255,255], 4)
-
 		self.plot_contours(frame, contours)
 		self.plot_centroid(frame, (cx,cy))
 		self.plot_farthest_point(frame, farthest_point)
 		self.plot_hull(frame, hull)
 		# self.plot_defects(frame, defects, max_contour)
+
+		paper_hand = self.paper.copy()
+		self.plot_farthest_point(paper_hand, farthest_point)
+
+		if translate:
+			point = self.original_point(farthest_point)
+			word = self.get_word_at_point(point)
+			if word != None:
+				self.text = self.translate(word).encode('ascii', errors='backslashreplace')
+			else:
+				self.text = ''
+
+		self.plot_text(paper_hand, self.text)		
 
 		frame_final = np.vstack([frame, paper_hand])
 		return frame_final
@@ -145,6 +155,9 @@ class FingerDetection:
 		# TODO see if this is necessary
 		self.tr.get_text()
 		self.words = self.tr.get_words()
+		for w in self.words:
+			translation = self.translate(w.value)
+			self.translations.append(translation)
 
 
 	def set_paper_hist(self, frame):
@@ -179,30 +192,16 @@ class FingerDetection:
 	def farthest_point(self, defects, contour, cx, cy):
 		if len(defects) > 0:
 			s = defects[:,0][:,0]
-			e = defects[:,0][:,1]
-			d = defects[:,0][:,3]
 			
-			x_s = np.array(contour[s][:,0][:,0], dtype=np.float)
-			y_s = np.array(contour[s][:,0][:,1], dtype=np.float)
+			x = np.array(contour[s][:,0][:,0], dtype=np.float)
+			y = np.array(contour[s][:,0][:,1], dtype=np.float)
 						
-			xp_s = cv2.pow(cv2.subtract(x_s, cx), 2)
-			yp_s = cv2.pow(cv2.subtract(y_s, cy), 2)
-			dist_s = cv2.sqrt(cv2.add(xp_s, yp_s))
+			xp = cv2.pow(cv2.subtract(x, cx), 2)
+			yp = cv2.pow(cv2.subtract(y, cy), 2)
+			dist = cv2.sqrt(cv2.add(xp, yp))
 
-			# x_e = np.array(contour[e][:,0][:,0], dtype=np.float)
-			# y_e = np.array(contour[e][:,0][:,1], dtype=np.float)
-						
-			# xp_e = cv2.pow(cv2.subtract(x_e, cx), 2)
-			# yp_e = cv2.pow(cv2.subtract(y_e, cy), 2)
-			# dist_e = cv2.sqrt(cv2.add(xp_e, yp_e))
-
-			dist_s_max_i = np.argmax(dist_s)
-			# d_max_i = np.argmax(d)
-			farthest_defect = s[dist_s_max_i]
-			# if dist_s[d_max_i] > dist_e[d_max_i]:
-			# 	farthest_defect = s[d_max_i]
-			# else:	
-			# 	farthest_defect = e[d_max_i]
+			dist_max_i = np.argmax(dist)
+			farthest_defect = s[dist_max_i]
 			farthest_point = tuple(contour[farthest_defect][0])
 			return farthest_point
 
@@ -231,29 +230,17 @@ class FingerDetection:
 	def plot_contours(self, frame, contours):
 		cv2.drawContours(frame, contours, -1, (0,255,0), 3)				
 
+	def plot_text(self, frame, text):
+		cv2.putText(frame, text, (50,50), cv2.FONT_HERSHEY_PLAIN, 3, [255,255,255], 4)	
 	
 	def get_word_at_point(self, point):
-		for w in self.words:
+		for i, w in enumerate(self.words):
 			x_nw,y_nw,x_se,y_sw = w.box
 			x,y = point
 			if x > x_nw and x < x_se and y > y_nw and y < y_sw:
-				return w.value
+				return self.translations[i]
 
 	def translate(self, word):
 		translated_word = self.gs.translate(word,'en',source_language='de')
 		return translated_word
 
-
-# i = i + 1
-
-# if i > 30:
-# 	point = fd.original_point(farthest)
-# 	word = fd.get_word_at_point(point)
-# 	if word != None:
-# 		text = fd.translate(word)
-# 	else:
-# 		text = ''
-# 	i = 0
-
-# rows,cols,_ = skin_paper.shape
-# cv2.putText(skin_paper, text, (rows/2-50,50), cv2.FONT_HERSHEY_PLAIN, 4, [255,255,255], 4)

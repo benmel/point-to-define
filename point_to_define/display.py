@@ -42,7 +42,12 @@ def main():
 		elif fd.trained_paper and not fd.trained_hand:
 			fd.draw_hand_rect(frame_draw)
 		elif fd.trained_paper and fd.trained_hand:
-			frame_draw = fd.draw_final(frame_draw)
+			i = i + 1
+			if i > 30:	
+				frame_draw = fd.draw_final(frame_draw, True)
+				i = 0
+			else:
+				frame_draw = fd.draw_final(frame_draw, False)	
 
 		# display frame	
 		cv2.imshow('image', frame_draw)			 	
