@@ -3,11 +3,8 @@ from finger_detection import FingerDetection
 import pdb
 
 def main():
-	fd = FingerDetection()
-
 	camera = cv2.VideoCapture(1)
-	i = 0
-	# text = 'Random'
+	fd = FingerDetection()
 
 	while True:
 		# get frame
@@ -42,12 +39,7 @@ def main():
 		elif fd.trained_paper and not fd.trained_hand:
 			fd.draw_hand_rect(frame_draw)
 		elif fd.trained_paper and fd.trained_hand:
-			i = i + 1
-			if i > 30:	
-				frame_draw = fd.draw_final(frame_draw, True)
-				i = 0
-			else:
-				frame_draw = fd.draw_final(frame_draw, False)	
+			frame_draw = fd.draw_final(frame_draw)
 
 		# display frame	
 		cv2.imshow('image', frame_draw)			 	

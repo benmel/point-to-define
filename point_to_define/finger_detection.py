@@ -3,8 +3,8 @@ import numpy as np
 from tesserwrap import Tesseract
 from PIL import Image
 import goslate
-import pdb
 import image_analysis
+from collections import deque
 
 class FingerDetection:
 	def __init__(self):		
@@ -36,6 +36,8 @@ class FingerDetection:
 		self.translations = []
 
 		self.text = ''
+
+		self.locations = deque(maxlen=20)
 
 
 	def resize(self, frame):
@@ -89,7 +91,7 @@ class FingerDetection:
 										(0,255,0),1)
 
 
-	def draw_final(self, frame, translate):
+	def draw_final(self, frame):
 		hand_masked = image_analysis.apply_hist_mask(frame, self.hand_hist)
 
 		contours = image_analysis.contours(hand_masked)
@@ -109,18 +111,21 @@ class FingerDetection:
 
 		paper_hand = self.paper.copy()
 		self.plot_farthest_point(paper_hand, farthest_point)
+		self.plot_word_boxes(paper_hand, self.words)
 
-		if translate:
-			point = self.original_point(farthest_point)
-			word = self.get_word_at_point(point)
-			if word != None:
-				self.text = self.translate(word).encode('ascii', errors='backslashreplace')
-			else:
-				self.text = ''
+		point = self.original_point(farthest_point)
+		index = self.get_word_index(point)
+		if index != None:
+			self.locations.append(index)
+		top_index = self.most_common(self.locations)
+
+		if top_index != None:
+			word = self.translations[top_index]
+			self.text = self.translate(word).encode('ascii', errors='backslashreplace')	
 
 		self.plot_text(paper_hand, self.text)		
 
-		frame_final = np.vstack([frame, paper_hand])
+		frame_final = np.vstack([paper_hand, frame])
 		return frame_final
 
 
@@ -152,7 +157,6 @@ class FingerDetection:
 		thresh = image_analysis.gray_threshold(paper, 100)
 		paper_img = Image.fromarray(thresh)
 		self.tr.set_image(paper_img)
-		# TODO see if this is necessary
 		self.tr.get_text()
 		self.words = self.tr.get_words()
 		for w in self.words:
@@ -187,6 +191,12 @@ class FingerDetection:
 		yo = int(y*self.row_ratio)
 		return (xo,yo)
 
+
+	def new_point(self, point):
+		(x,y) = point
+		xn = int(x/self.col_ratio)
+		yn = int(y/self.row_ratio)
+		return (xn,yn)
 
 	# TODO potentially move
 	def farthest_point(self, defects, contour, cx, cy):
@@ -230,8 +240,23 @@ class FingerDetection:
 	def plot_contours(self, frame, contours):
 		cv2.drawContours(frame, contours, -1, (0,255,0), 3)				
 
+
 	def plot_text(self, frame, text):
 		cv2.putText(frame, text, (50,50), cv2.FONT_HERSHEY_PLAIN, 3, [255,255,255], 4)	
+
+
+	def plot_word_boxes(self, frame, words):
+		rows,cols,_ = frame.shape
+		for w in words:
+			x_nw,y_nw,x_se,y_se = w.box
+			x_nw,y_nw = self.new_point((x_nw,y_nw))
+			x_se,y_se = self.new_point((x_se,y_se))
+			x_nw = x_nw
+			x_se = x_se
+
+			cv2.rectangle(frame,(x_nw,y_nw),(x_se,y_se),
+									(0,255,255),1)
+
 	
 	def get_word_at_point(self, point):
 		for i, w in enumerate(self.words):
@@ -240,7 +265,30 @@ class FingerDetection:
 			if x > x_nw and x < x_se and y > y_nw and y < y_sw:
 				return self.translations[i]
 
+
+	def get_word_index(self, point):
+		for i, w in enumerate(self.words):
+			x_nw,y_nw,x_se,y_sw = w.box
+			x,y = point
+			if x > x_nw and x < x_se and y > y_nw and y < y_sw:
+				return i	
+
+
+	def most_common(self, listi):
+		values = set(listi)
+		index = None
+		maxi = 0
+		for i in values:
+			num = listi.count(i)
+			if num > maxi:
+				index = i
+		frequency = float(listi.count(index))/float(listi.maxlen)
+		if frequency > 0.25:
+			return index
+		else:
+			return None								
+
+
 	def translate(self, word):
 		translated_word = self.gs.translate(word,'en',source_language='de')
 		return translated_word
-
