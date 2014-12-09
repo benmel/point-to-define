@@ -3,7 +3,7 @@ import numpy as np
 import image_analysis
 from collections import deque
 
-class FingerDetection:
+class DrawFrame:
 	def __init__(self):				
 		self.row_ratio = None
 		self.col_ratio = None
