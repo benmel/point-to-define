@@ -42,14 +42,20 @@ def hull(contour):
 
 def defects(contour):
 	hull = cv2.convexHull(contour, returnPoints=False)
-	defects = cv2.convexityDefects(contour, hull)	
-	return defects
+	if hull != None and len(hull > 3) and len(contour) > 3:
+		defects = cv2.convexityDefects(contour, hull)	
+		return defects
+	else: 
+		return None
 
 def centroid(contour):
 	moments = cv2.moments(contour)
-	cx = int(moments['m10']/moments['m00'])
-	cy = int(moments['m01']/moments['m00'])
-	return (cx,cy)	
+	if moments['m00'] != 0:
+		cx = int(moments['m10']/moments['m00'])
+		cy = int(moments['m01']/moments['m00'])
+		return (cx,cy)
+	else:
+		return None		
 
 def contour_interior(frame, contour):
 	rect = cv2.minAreaRect(contour)
@@ -76,18 +82,22 @@ def gray_threshold(frame, threshold_value):
 	ret, thresh = cv2.threshold(gray, threshold_value, 255, 0)
 	return thresh
 
-def farthest_point(defects, contour, cx, cy):
-	if len(defects) > 0:
-		s = defects[:,0][:,0]
-		
-		x = np.array(contour[s][:,0][:,0], dtype=np.float)
-		y = np.array(contour[s][:,0][:,1], dtype=np.float)
-					
-		xp = cv2.pow(cv2.subtract(x, cx), 2)
-		yp = cv2.pow(cv2.subtract(y, cy), 2)
-		dist = cv2.sqrt(cv2.add(xp, yp))
+def farthest_point(defects, contour, centroid):
+	s = defects[:,0][:,0]
+	cx, cy = centroid
+	
+	x = np.array(contour[s][:,0][:,0], dtype=np.float)
+	y = np.array(contour[s][:,0][:,1], dtype=np.float)
+				
+	xp = cv2.pow(cv2.subtract(x, cx), 2)
+	yp = cv2.pow(cv2.subtract(y, cy), 2)
+	dist = cv2.sqrt(cv2.add(xp, yp))
 
-		dist_max_i = np.argmax(dist)
+	dist_max_i = np.argmax(dist)
+
+	if dist_max_i < len(s):
 		farthest_defect = s[dist_max_i]
 		farthest_point = tuple(contour[farthest_defect][0])
-		return farthest_point	
+		return farthest_point
+	else:
+		return None	

@@ -30,30 +30,31 @@ class DrawFrame:
 
 	def draw_final(self, frame, paper_detection, hand_detection):
 		hand_masked = image_analysis.apply_hist_mask(frame, hand_detection.hand_hist)
-
-		contours = image_analysis.contours(hand_masked)
-		max_contour = image_analysis.max_contour(contours)
-
-		hull = image_analysis.hull(max_contour)
-		defects = image_analysis.defects(max_contour)
-		
-		cx, cy = image_analysis.centroid(max_contour)
-		farthest_point = image_analysis.farthest_point(defects, max_contour, cx, cy)
-
-		self.plot_farthest_point(frame, farthest_point)
-		self.plot_hull(frame, hull)
-		# self.plot_contours(frame, contours)
-		# self.plot_defects(frame, defects, max_contour)
-		# self.plot_centroid(frame, (cx,cy))
-
 		paper_hand = paper_detection.paper_copy()
-		self.plot_farthest_point(paper_hand, farthest_point)
 		self.plot_word_boxes(paper_hand, paper_detection.words)
 
-		point = self.original_point(farthest_point)
-		paper_detection.update_pointed_locations(point)
-		self.text = paper_detection.get_most_common_word()
+		contours = image_analysis.contours(hand_masked)
+		if contours != None and len(contours) > 0:
+			max_contour = image_analysis.max_contour(contours)
+			hull = image_analysis.hull(max_contour)
+			centroid = image_analysis.centroid(max_contour)
+			defects = image_analysis.defects(max_contour)
 
+			if centroid != None and defects != None and len(defects) > 0:
+				farthest_point = image_analysis.farthest_point(defects, max_contour, centroid)
+
+				if farthest_point != None:
+					self.plot_farthest_point(frame, farthest_point)
+					self.plot_hull(frame, hull)
+					# self.plot_contours(frame, contours)
+					# self.plot_defects(frame, defects, max_contour)
+					# self.plot_centroid(frame, (cx,cy))
+
+					self.plot_farthest_point(paper_hand, farthest_point)
+					point = self.original_point(farthest_point)
+					paper_detection.update_pointed_locations(point)
+					self.text = paper_detection.get_most_common_word()
+		
 		self.plot_text(paper_hand, self.text)		
 		frame_final = np.vstack([paper_hand, frame])
 		return frame_final
