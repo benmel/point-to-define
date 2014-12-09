@@ -42,7 +42,7 @@ def hull(contour):
 
 def defects(contour):
 	hull = cv2.convexHull(contour, returnPoints=False)
-	if hull != None and len(hull > 3) and len(contour) > 3:
+	if hull is not None and len(hull > 3) and len(contour) > 3:
 		defects = cv2.convexityDefects(contour, hull)	
 		return defects
 	else: 

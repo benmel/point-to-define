@@ -34,16 +34,16 @@ class DrawFrame:
 		self.plot_word_boxes(paper_hand, paper_detection.words)
 
 		contours = image_analysis.contours(hand_masked)
-		if contours != None and len(contours) > 0:
+		if contours is not None and len(contours) > 0:
 			max_contour = image_analysis.max_contour(contours)
 			hull = image_analysis.hull(max_contour)
 			centroid = image_analysis.centroid(max_contour)
 			defects = image_analysis.defects(max_contour)
 
-			if centroid != None and defects != None and len(defects) > 0:
+			if centroid is not None and defects is not None and len(defects) > 0:	
 				farthest_point = image_analysis.farthest_point(defects, max_contour, centroid)
 
-				if farthest_point != None:
+				if farthest_point is not None:
 					self.plot_farthest_point(frame, farthest_point)
 					self.plot_hull(frame, hull)
 					# self.plot_contours(frame, contours)
