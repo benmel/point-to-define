@@ -3,6 +3,7 @@ import numpy as np
 from tesserwrap import Tesseract
 from PIL import Image
 import goslate
+from collections import deque
 import image_analysis
 
 class PaperDetection:
@@ -18,6 +19,7 @@ class PaperDetection:
 		self.paper = None
 		self.words = None
 		self.translations = []
+		self.pointed_locations = deque(maxlen=20)
 
 
 	def draw_paper_rect(self, frame):
@@ -49,7 +51,12 @@ class PaperDetection:
 	
 
 	def set_paper(self, frame):
-		self.paper = self.get_paper(frame)	
+		self.paper = self.get_paper(frame)
+
+
+	def paper_copy(self):
+		paper = self.paper.copy()
+		return paper		
 
 	
 	def set_ocr_text(self, frame):
@@ -90,3 +97,32 @@ class PaperDetection:
 	def translate(self, word):
 		translated_word = self.gs.translate(word,'en',source_language='de')
 		return translated_word
+
+
+	def update_pointed_locations(self, point):	
+		index = self.get_word_index(point)
+		if index != None:
+			self.pointed_locations.append(index)
+
+
+	def get_most_common_word(self):		
+		index = self.most_common_location()
+		if index != None:
+			word = self.translations[index].encode('ascii', errors='backslashreplace')
+			return word
+
+	
+	def most_common_location(self):
+		values = set(self.pointed_locations)
+		index = None
+		maxi = 0
+		for i in values:
+			num = self.pointed_locations.count(i)
+			if num > maxi:
+				index = i
+		frequency = float(self.pointed_locations.count(index))/float(self.pointed_locations.maxlen)
+		if frequency > 0.25:
+			return index
+		else:
+			return None					
+			

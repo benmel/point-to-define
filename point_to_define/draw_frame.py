@@ -1,15 +1,13 @@
 import cv2
 import numpy as np
 import image_analysis
-from collections import deque
 
 class DrawFrame:
 	def __init__(self):				
 		self.row_ratio = None
 		self.col_ratio = None
 		self.text = ''
-		self.locations = deque(maxlen=20)
-
+		
 
 	def resize(self, frame):
 		rows,cols,_ = frame.shape
@@ -40,30 +38,23 @@ class DrawFrame:
 		defects = image_analysis.defects(max_contour)
 		
 		cx, cy = image_analysis.centroid(max_contour)
-		farthest_point = self.farthest_point(defects, max_contour, cx, cy)
+		farthest_point = image_analysis.farthest_point(defects, max_contour, cx, cy)
 
-		# self.plot_contours(frame, contours)
-		self.plot_centroid(frame, (cx,cy))
 		self.plot_farthest_point(frame, farthest_point)
 		self.plot_hull(frame, hull)
+		# self.plot_contours(frame, contours)
 		# self.plot_defects(frame, defects, max_contour)
+		# self.plot_centroid(frame, (cx,cy))
 
-		paper_hand = paper_detection.paper.copy()
+		paper_hand = paper_detection.paper_copy()
 		self.plot_farthest_point(paper_hand, farthest_point)
 		self.plot_word_boxes(paper_hand, paper_detection.words)
 
 		point = self.original_point(farthest_point)
-		index = paper_detection.get_word_index(point)
-		if index != None:
-			self.locations.append(index)
-		top_index = self.most_common(self.locations)
-
-		if top_index != None:
-			word = paper_detection.translations[top_index]
-			self.text = paper_detection.translate(word).encode('ascii', errors='backslashreplace')	
+		paper_detection.update_pointed_locations(point)
+		self.text = paper_detection.get_most_common_word()
 
 		self.plot_text(paper_hand, self.text)		
-
 		frame_final = np.vstack([paper_hand, frame])
 		return frame_final
 
@@ -81,23 +72,7 @@ class DrawFrame:
 		yn = int(y/self.row_ratio)
 		return (xn,yn)
 
-	# TODO potentially move
-	def farthest_point(self, defects, contour, cx, cy):
-		if len(defects) > 0:
-			s = defects[:,0][:,0]
-			
-			x = np.array(contour[s][:,0][:,0], dtype=np.float)
-			y = np.array(contour[s][:,0][:,1], dtype=np.float)
-						
-			xp = cv2.pow(cv2.subtract(x, cx), 2)
-			yp = cv2.pow(cv2.subtract(y, cy), 2)
-			dist = cv2.sqrt(cv2.add(xp, yp))
-
-			dist_max_i = np.argmax(dist)
-			farthest_defect = s[dist_max_i]
-			farthest_point = tuple(contour[farthest_defect][0])
-			return farthest_point
-
+	
 	def plot_defects(self, frame, defects, contour):
 		if len(defects) > 0:
 			for i in xrange(defects.shape[0]):
@@ -125,8 +100,7 @@ class DrawFrame:
 
 
 	def plot_text(self, frame, text):
-		cv2.putText(frame, text, (50,50), cv2.FONT_HERSHEY_PLAIN, 3, [255,255,255], 4)	
-
+		cv2.putText(frame, text, (50,50), cv2.FONT_HERSHEY_PLAIN, 3, [255,255,255], 4)
 
 	def plot_word_boxes(self, frame, words):
 		rows,cols,_ = frame.shape
@@ -138,19 +112,4 @@ class DrawFrame:
 			x_se = x_se
 
 			cv2.rectangle(frame,(x_nw,y_nw),(x_se,y_se),
-									(0,255,255),1)
-
-	
-	def most_common(self, listi):
-		values = set(listi)
-		index = None
-		maxi = 0
-		for i in values:
-			num = listi.count(i)
-			if num > maxi:
-				index = i
-		frequency = float(listi.count(index))/float(listi.maxlen)
-		if frequency > 0.25:
-			return index
-		else:
-			return None								
+									(0,255,255),1)	

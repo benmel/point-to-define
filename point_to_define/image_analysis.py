@@ -75,3 +75,19 @@ def gray_threshold(frame, threshold_value):
 	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 	ret, thresh = cv2.threshold(gray, threshold_value, 255, 0)
 	return thresh
+
+def farthest_point(defects, contour, cx, cy):
+	if len(defects) > 0:
+		s = defects[:,0][:,0]
+		
+		x = np.array(contour[s][:,0][:,0], dtype=np.float)
+		y = np.array(contour[s][:,0][:,1], dtype=np.float)
+					
+		xp = cv2.pow(cv2.subtract(x, cx), 2)
+		yp = cv2.pow(cv2.subtract(y, cy), 2)
+		dist = cv2.sqrt(cv2.add(xp, yp))
+
+		dist_max_i = np.argmax(dist)
+		farthest_defect = s[dist_max_i]
+		farthest_point = tuple(contour[farthest_defect][0])
+		return farthest_point	

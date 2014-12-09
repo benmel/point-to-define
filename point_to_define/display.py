@@ -1,5 +1,4 @@
 import cv2
-import numpy as np 
 from draw_frame import DrawFrame
 from paper_detection import PaperDetection
 from hand_detection import HandDetection
