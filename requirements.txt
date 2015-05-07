@@ -5,4 +5,3 @@ Pillow==2.8.1
 py==1.4.27
 pytest==2.7.0
 tesserwrap==0.1.6
-virtualenv==12.1.1
