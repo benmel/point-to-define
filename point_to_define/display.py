@@ -4,7 +4,7 @@ from paper_detection import PaperDetection
 from hand_detection import HandDetection
 
 def loop(output_video):
-	camera = cv2.VideoCapture(1)
+	camera = cv2.VideoCapture(0)
 	if output_video != None:
 		fourcc = cv2.cv.CV_FOURCC('m', 'p', '4', 'v')
 		video = cv2.VideoWriter(output_video, fourcc, 20, (711,800))
