@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import os
 from tesserwrap import Tesseract
 from PIL import Image
 import goslate
@@ -8,6 +9,8 @@ import image_analysis
 
 class PaperDetection:
 	def __init__(self):		
+		cwd = os.path.dirname(os.path.realpath(__file__))
+		os.environ['TESSDATA_PREFIX'] = cwd
 		self.tr = Tesseract(lang='deu')
 		self.gs = goslate.Goslate()
 		self.trained_paper = False
